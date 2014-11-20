@@ -1,6 +1,42 @@
 # Capistrano::Froxlor
 
-TODO: Write a gem description
+Add Froxlor cli functions to capistrano. This gem does not deploy Froxlor itself.
+
+# Requirements
+
+capistrano 3.x
+
+## Cap configuration
+
+```ruby
+set :frx_db_auth, 'froxlor:froxlor_db_password@localhost'
+
+set :frx_customer, 'customer_user_name'
+set :frx_domains, -> do
+  [
+    "subdomain2.parent_domain.com" => {
+      :customer => 'customer_user_name',
+      :domain_docroot => "/var/customers/webs/customer_user_name/mywebroot",
+      :openbasedir_path_home => true,
+      :sub_domain_parent => 'parent_domain.com'
+    },
+    'subdomain2.parent_domain.com' => {
+      :customer => 'customer_user_name',
+      :domain_docroot => "/var/customers/webs/customer_user_name/mywebroot",
+      :openbasedir_path_home => true,
+      :sub_domain_parent => 'parent_domain.com'
+    }
+  ]
+end
+```
+
+## Usage
+
+```bash
+cap froxlor:admin:master_cronjob     # run master cron job
+cap froxlor:customer:create_db       # create db for customer based on latest name
+cap froxlor:customer:create_domains  # create or recreate (sub)domains
+```
 
 ## Installation
 
@@ -18,9 +54,11 @@ Or install it yourself as:
 
     $ gem install capistrano-froxlor
 
-## Usage
+Add this line to your Capfile
 
-TODO: Write usage instructions here
+```ruby
+require 'capistrano/froxlor'
+```
 
 ## Contributing
 

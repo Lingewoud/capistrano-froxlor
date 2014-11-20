@@ -1,11 +1,18 @@
 # vim: ft=ruby:sts=2:expandtab
+set :frx_db_name, 'froxlor'
+
 namespace :froxlor do
-    desc "apply froxlor changes, normally run from cron"
-    task :apply do
-        on roles(:all) do
-            execute "sudo /usr/bin/php5 -q /var/www/froxlor/scripts/froxlor_master_cronjob.php"
-        end
+
+  namespace :admin do
+    desc "run master cron job. Apply froxlor changes, normally run from cron"
+    task :master_cronjob do
+      on roles(:all) do
+        execute "sudo /usr/bin/php5 -q /var/www/froxlor/scripts/froxlor_master_cronjob.php --force"
+      end
     end
+  end
+
+  namespace :customer do
 
     desc "create db for customer based on latest name"
     task :create_db do
@@ -45,17 +52,85 @@ namespace :froxlor do
             f.puts "set :dbpass, '#{new_db_password}'"
             f.puts "set :dbhost, 'localhost'"
           }
-
       end
     end
 
-    desc "create or recreate domains"
+    desc "create or recreate (sub)domains"
     task :create_domains do
       on roles(:all) do
-        execute ""
+
+        run_master_job=false
+
+        customer = fetch(:frx_customer)
+        dbcon = fetch(:frx_db_auth).split(':')
+        dbname = fetch(:frx_db_name)
+        dbuser = dbcon[0]
+        dbpass = dbcon[1].split('@')[0]
+        dbhost = dbcon[1].split('@')[1]
+
+        customer_id = capture "mysql -p#{dbpass} -u#{dbuser} -h#{dbhost} #{dbname} --execute='select customerid from panel_customers where loginname =\"userdev\";' -B -N".strip
+
+        fetch(:frx_domains).each do |dom|
+          dom.each do | dname,dsettings|
+
+            if dsettings.has_key?(:sub_domain_parent)
+              #              p dsettings
+
+              #TODO ME 
+              #check if domain exist but owner is not correct
+              owner_dom_id = capture "mysql -p#{dbpass} -u#{dbuser} -h#{dbhost} #{dbname} --execute='select customerid from panel_domains where "\
+                "domain =\"#{dname}\";' -B -N".strip
+              #              p "existing owner = #{owner_dom_id}"
+              if owner_dom_id.to_i > 0 && owner_dom_id.to_i != customer_id.to_i
+                raise "Domain exists but is has a different owner. Check your settings."
+              end
+
+              #if is parent find parent
+              parent_dom_id = capture "mysql -p#{dbpass} -u#{dbuser} -h#{dbhost} #{dbname} --execute='select id from panel_domains where "\
+                "domain =\"#{dsettings[:sub_domain_parent]}\" and customerid =#{customer_id};' -B -N".strip
+
+              # p parent_dom_id
+              if parent_dom_id.to_i > 0
+
+                #domain does not exist
+                new_dom_id = capture "mysql -p#{dbpass} -u#{dbuser} -h#{dbhost} #{dbname} --execute='select id from panel_domains where "\
+                  "domain =\"#{dname}\";' -B -N".strip
+
+                if new_dom_id.to_i > 0
+                  #update
+                  run_master_job = true
+                  sql = "UPDATE panel_domains SET domain=\"#{dname}\", customerid = #{customer_id.to_i}, documentroot=\"#{dsettings[:domain_docroot]}\" WHERE id = #{new_dom_id}"
+                else
+                  run_master_job = true
+                  sql = "INSERT INTO panel_domains ("\
+                    " domain, adminid, customerid, aliasdomain, documentroot, ipandport, isbinddomain, isemaildomain, " \
+                    " email_only, iswildcarddomain, subcanemaildomain, caneditdomain, zonefile, dkim, dkim_id, dkim_privkey, dkim_pubkey,"\
+                    " wwwserveralias, parentdomainid, openbasedir, openbasedir_path, speciallogfile, specialsettings,"\
+                    " deactivated, bindserial, add_date, registration_date, phpsettingid, mod_fcgid_starter, mod_fcgid_maxrequests, ismainbutsubto)  " \
+                    " VALUES " \
+                    "(\"#{dname}\", 0, #{customer_id.to_i}, NULL, \"#{dsettings[:domain_docroot]}\", 2, 0, 0,"\
+                    " 0, 0, 0, 1, \"\", 0, 0, \"\", \"\","\
+                    " 1, #{parent_dom_id}, 0, 1, 0, \"\","\
+                    " 0, \"2000010100\", 0, \"0000-00-00\", 1, -1, -1, 0);"
+                    #insert
+                end
+
+                execute "echo '#{sql}' | mysql -p#{dbpass} -u#{dbuser} -h#{dbhost} #{dbname}"
+
+              else
+                print "Domain does not exist or is not owned by #{customer}"
+              end
+
+            end
+          end
+        end
+
+        if(run_master_job)
+          execute "sudo /usr/bin/php5 -q /var/www/froxlor/scripts/froxlor_master_cronjob.php --force"
+        end
+
       end
     end
 
-
+  end
 end
-

@@ -8,9 +8,9 @@ Gem::Specification.new do |spec|
   spec.version       = Capistrano::Froxlor::VERSION
   spec.authors       = ["Pim Snel"]
   spec.email         = ["pim@lingewoud.nl"]
-  spec.summary       = %q{TODO: Write a short summary. Required.}
-  spec.description   = %q{TODO: Write a longer description. Optional.}
-  spec.homepage      = ""
+  spec.summary       = %q{Froxlor cli functionality for capistrano 3}
+  spec.description   = %q{Add Froxlor cli functions to capistrano. This gem does not deploy Froxlor itself.}
+  spec.homepage      = "https://github.com/mipmip/capistrano-froxlor"
   spec.license       = "MIT"
 
   spec.files         = `git ls-files -z`.split("\x0")
