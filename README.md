@@ -1,5 +1,7 @@
 # Capistrano::Froxlor
 
+[![Gem Version](https://badge.fury.io/rb/capistrano-froxlor.svg)](http://badge.fury.io/rb/capistrano-froxlor)
+
 Add Froxlor cli functions to capistrano. This gem does not deploy Froxlor itself.
 
 # Requirements
