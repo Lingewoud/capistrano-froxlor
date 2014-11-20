@@ -1,0 +1,61 @@
+# vim: ft=ruby:sts=2:expandtab
+namespace :froxlor do
+    desc "apply froxlor changes, normally run from cron"
+    task :apply do
+        on roles(:all) do
+            execute "sudo /usr/bin/php5 -q /var/www/froxlor/scripts/froxlor_master_cronjob.php"
+        end
+    end
+
+    desc "create db for customer based on latest name"
+    task :create_db do
+      on roles(:all) do
+        customer = fetch(:frx_customer)
+        dbcon = fetch(:frx_db_auth).split(':')
+        dbname = fetch(:frx_db_name)
+        dbuser = dbcon[0]
+        dbpass = dbcon[1].split('@')[0]
+        dbhost = dbcon[1].split('@')[1]
+
+        #find latest db for user
+        dbs = capture "mysql -p#{dbpass} -u#{dbuser} -h#{dbhost} #{dbname} --execute='show databases;' | grep #{customer}| sort --version-sort | tail -n 1"
+        version = dbs["#{customer}sql".length..dbs.length].strip.to_i
+        version += 1
+
+        new_db_name = "#{customer}sql#{version.to_s}"
+
+        #create new password
+        charset = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ#{'0123456789' * 5}".split(//)
+        new_db_password = (0...10).map{ charset[rand(charset.size)] }.join
+
+        customer_id = capture "mysql -p#{dbpass} -u#{dbuser} -h#{dbhost} #{dbname} --execute='select customerid from panel_customers where loginname =\"userdev\";' -B -N".strip
+
+        execute "echo \"" \
+          "CREATE USER #{new_db_name}@localhost IDENTIFIED BY '#{new_db_password}';" \
+          "CREATE DATABASE #{new_db_name};" \
+          "GRANT ALL PRIVILEGES ON #{new_db_name}.* TO #{new_db_name};" \
+          "INSERT INTO panel_databases (customerid, databasename, description, dbserver, apsdb) VALUES (#{customer_id}, '#{new_db_name}', '#{fetch(:application)}:#{fetch(:stage).to_s} (auto created by capfroxlor)', 0, 0);" \
+          "\" | mysql  -p#{dbpass} -u#{dbuser} -h#{dbhost} #{dbname}"
+
+          open("config/deploy/#{fetch(:stage).to_s}.rb", 'a') { |f|
+            f.puts "### ----- ALERT"
+            f.puts "### New db settings. Remove old"
+            f.puts "set :dbname, '#{new_db_name}'"
+            f.puts "set :dbuser, '#{new_db_name}'"
+            f.puts "set :dbpass, '#{new_db_password}'"
+            f.puts "set :dbhost, 'localhost'"
+          }
+
+      end
+    end
+
+    desc "create or recreate domains"
+    task :create_domains do
+      on roles(:all) do
+        execute ""
+      end
+    end
+
+
+end
+
