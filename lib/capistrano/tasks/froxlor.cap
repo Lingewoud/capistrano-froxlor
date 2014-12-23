@@ -35,13 +35,20 @@ namespace :froxlor do
         charset = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ#{'0123456789' * 5}".split(//)
         new_db_password = (0...10).map{ charset[rand(charset.size)] }.join
 
-        customer_id = capture "mysql -p#{dbpass} -u#{dbuser} -h#{dbhost} #{dbname} --execute='select customerid from panel_customers where loginname =\"userdev\";' -B -N".strip
+        customer_id = capture "mysql -p#{dbpass} -u#{dbuser} -h#{dbhost} #{dbname} --execute='select customerid from panel_customers where loginname =\"#{customer}\";' -B -N".strip
 
         execute "echo \"" \
-          "CREATE USER #{new_db_name}@localhost IDENTIFIED BY '#{new_db_password}';" \
-          "CREATE DATABASE #{new_db_name};" \
-          "GRANT ALL PRIVILEGES ON #{new_db_name}.* TO #{new_db_name};" \
-          "INSERT INTO panel_databases (customerid, databasename, description, dbserver, apsdb) VALUES (#{customer_id}, '#{new_db_name}', '#{fetch(:application)}:#{fetch(:stage).to_s} (auto created by capfroxlor)', 0, 0);" \
+          "CREATE USER #{new_db_name}@localhost IDENTIFIED BY '#{new_db_password}';"
+
+        execute "echo \"" \
+          "CREATE DATABASE #{new_db_name};"
+
+        execute "echo \"" \
+          "GRANT ALL PRIVILEGES ON #{new_db_name}.* TO #{new_db_name};"
+
+        execute "echo \"" \
+          "INSERT INTO panel_databases (customerid, databasename, description, dbserver, apsdb)" \
+          "VALUES (#{customer_id}, '#{new_db_name}', '#{fetch(:application)}:#{fetch(:stage).to_s} (auto created by capfroxlor)', 0, 0);" \
           "\" | mysql  -p#{dbpass} -u#{dbuser} -h#{dbhost} #{dbname}"
 
           open("config/deploy/#{fetch(:stage).to_s}.rb", 'a') { |f|
@@ -68,7 +75,7 @@ namespace :froxlor do
         dbpass = dbcon[1].split('@')[0]
         dbhost = dbcon[1].split('@')[1]
 
-        customer_id = capture "mysql -p#{dbpass} -u#{dbuser} -h#{dbhost} #{dbname} --execute='select customerid from panel_customers where loginname =\"userdev\";' -B -N".strip
+        customer_id = capture "mysql -p#{dbpass} -u#{dbuser} -h#{dbhost} #{dbname} --execute='select customerid from panel_customers where loginname =\"#{customer}\";' -B -N".strip
 
         fetch(:frx_domains).each do |dom|
           dom.each do | dname,dsettings|
@@ -99,7 +106,7 @@ namespace :froxlor do
                 if new_dom_id.to_i > 0
                   #update
                   run_master_job = true
-                  sql = "UPDATE panel_domains SET domain=\"#{dname}\", customerid = #{customer_id.to_i}, documentroot=\"#{dsettings[:domain_docroot]}\" WHERE id = #{new_dom_id}"
+                  sql = "UPDATE panel_domains SET domain=\"#{dname}\", customerid = #{customer_id.to_i}, documentroot=\"#{dsettings[:domain_docroot]}\", ipandport = #{fetch(:frx_ip_and_port)} WHERE id = #{new_dom_id}"
                 else
                   run_master_job = true
                   sql = "INSERT INTO panel_domains ("\
@@ -108,7 +115,7 @@ namespace :froxlor do
                     " wwwserveralias, parentdomainid, openbasedir, openbasedir_path, speciallogfile, specialsettings,"\
                     " deactivated, bindserial, add_date, registration_date, phpsettingid, mod_fcgid_starter, mod_fcgid_maxrequests, ismainbutsubto)  " \
                     " VALUES " \
-                    "(\"#{dname}\", 0, #{customer_id.to_i}, NULL, \"#{dsettings[:domain_docroot]}\", 2, 0, 0,"\
+                    "(\"#{dname}\", 0, #{customer_id.to_i}, NULL, \"#{dsettings[:domain_docroot]}\", #{fetch(:frx_ip_and_port)}, 0, 0,"\
                     " 0, 0, 0, 1, \"\", 0, 0, \"\", \"\","\
                     " 1, #{parent_dom_id}, 0, 1, 0, \"\","\
                     " 0, \"2000010100\", 0, \"0000-00-00\", 1, -1, -1, 0);"
