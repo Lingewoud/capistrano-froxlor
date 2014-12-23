@@ -38,18 +38,21 @@ namespace :froxlor do
         customer_id = capture "mysql -p#{dbpass} -u#{dbuser} -h#{dbhost} #{dbname} --execute='select customerid from panel_customers where loginname =\"#{customer}\";' -B -N".strip
 
         execute "echo \"" \
-          "CREATE USER #{new_db_name}@localhost IDENTIFIED BY '#{new_db_password}';"
+          "CREATE USER #{new_db_name}@localhost IDENTIFIED BY '#{new_db_password}';" \
+          "| mysql  -p#{dbpass} -u#{dbuser} -h#{dbhost} #{dbname}"
 
         execute "echo \"" \
-          "CREATE DATABASE #{new_db_name};"
+          "CREATE DATABASE #{new_db_name};" \
+          "| mysql  -p#{dbpass} -u#{dbuser} -h#{dbhost} #{dbname}"
 
         execute "echo \"" \
-          "GRANT ALL PRIVILEGES ON #{new_db_name}.* TO #{new_db_name};"
+          "GRANT ALL PRIVILEGES ON #{new_db_name}.* TO #{new_db_name};" \
+          "| mysql  -p#{dbpass} -u#{dbuser} -h#{dbhost} #{dbname}"
 
         execute "echo \"" \
           "INSERT INTO panel_databases (customerid, databasename, description, dbserver, apsdb)" \
           "VALUES (#{customer_id}, '#{new_db_name}', '#{fetch(:application)}:#{fetch(:stage).to_s} (auto created by capfroxlor)', 0, 0);" \
-          "\" | mysql  -p#{dbpass} -u#{dbuser} -h#{dbhost} #{dbname}"
+          "| mysql  -p#{dbpass} -u#{dbuser} -h#{dbhost} #{dbname}"
 
           open("config/deploy/#{fetch(:stage).to_s}.rb", 'a') { |f|
             f.puts "### ----- ALERT"
