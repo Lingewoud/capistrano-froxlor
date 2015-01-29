@@ -26,8 +26,12 @@ namespace :froxlor do
 
         #find latest db for user
         dbs = capture "mysql -p#{dbpass} -u#{dbuser} -h#{dbhost} #{dbname} --execute='show databases;' | grep #{customer}| sort --version-sort | tail -n 1"
-        version = dbs["#{customer}sql".length..dbs.length].strip.to_i
-        version += 1
+        if dbs ==''
+          version = 1
+        else
+          version = dbs["#{customer}sql".length..dbs.length].strip.to_i
+          version += 1
+        end
 
         new_db_name = "#{customer}sql#{version.to_s}"
 
